@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from "../api.js";
 
 const API_KEY = "abc123";
 
@@ -10,15 +11,11 @@ export default function Dashboard() {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        "http://localhost:8080/api/orders",
-        {
-          credentials: "include",
-          headers: {
-            "X-API-Key": API_KEY,
-          },
+      const res = await apiFetch("/api/orders", {
+        headers:{
+            "X-API-Key":API_KEY
         }
-      );
+      });
 
       const data = await res.json();
 
@@ -34,15 +31,11 @@ export default function Dashboard() {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        "http://localhost:8080/api/users",
-        {
-          credentials: "include",
-          headers: {
-            "X-API-Key": API_KEY,
-          },
+      const res = await apiFetch("/api/users", {
+        headers:{
+            "X-API-Key":API_KEY
         }
-      );
+      });
 
       const data = await res.json();
 
@@ -58,15 +51,11 @@ export default function Dashboard() {
     setLoading(true);
 
     for (let i = 1; i <= 160; i++) {
-      const res = await fetch(
-        "http://localhost:8080/api/orders",
-        {
-          credentials: "include",
-          headers: {
-            "X-API-Key": API_KEY,
-          },
+      const res = await apiFetch("/api/orders", {
+        headers:{
+            "X-API-Key":API_KEY
         }
-      );
+      });
 
       console.log(i, res.status);
 
