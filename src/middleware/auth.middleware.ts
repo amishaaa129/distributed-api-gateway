@@ -1,6 +1,8 @@
 import { pool } from "../db/db.js";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import type { JwtPayload } from "jsonwebtoken";
 import { scopeMap, routeConfig } from "../config/scopes.js";
+import { registry } from "../config/registry.js";
 
 const verifyJWT = async (req, res, next) => {
     try {
@@ -47,17 +49,24 @@ const authoriseRoles = async (req, res, next) => {
             r => scopeMap[r.role] || []
         );
 
-        const requiredScope = routeConfig[req.route.path];
+        const route = registry.find(r =>
+            req.originalUrl.startsWith(r.path)
+        );
 
-        if (!requiredScope) {
-            return next();
+        if (!route) {
+            return res.status(404).json({
+                message: "Route not found"
+            });
         }
+
+        const requiredScope = route.scope;
 
         if (!allowedScopes.includes(requiredScope)) {
             return res.status(403).json({
                 message: "Forbidden"
             });
         }
+
         next();
 
     } catch (error: any) {

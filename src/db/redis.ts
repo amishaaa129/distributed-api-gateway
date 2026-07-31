@@ -1,6 +1,6 @@
 import { createClient } from "redis";
 
-export const redis = createClient({
+const redis = createClient({
     url: process.env.REDIS_URL!
 });
 
@@ -9,3 +9,5 @@ redis.on("error", (err) => {
 });
 
 await redis.connect();
+
+export default redis;

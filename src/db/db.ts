@@ -10,7 +10,6 @@ const pool = new Pool({
     database: process.env.DB_NAME,
 });
 
-console.log(process.env.DB_PASSWORD);
 const connectDB = async () => {
     try {
         await pool.query("SELECT NOW()");

@@ -1,7 +1,9 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { verifyJWT, authoriseRoles } from "./middleware/auth.middleware.js";
 import { registry } from "./config/registry.js";
+import userRouter from "./routes/user.routes.js";
 import rateLimiter from "./middleware/rate-limiter.middleware.js";
 import cors from "cors";
 
@@ -10,13 +12,15 @@ const app1 = express();
 const app2 = express();
 const proxy = express();
 
-proxy.use(cors());
+proxy.use(cors({
+        origin: "http://localhost:5173",
+        credentials: true
+    }));
 
 app.use(cors());
 app.use(express.json());
 proxy.use(express.json());
-
-const accessToken = localStorage.getItem("accessToken");
+proxy.use(cookieParser());
 
 app.get("/", (req, res) => {
 
@@ -38,8 +42,8 @@ app.get("/", (req, res) => {
         async function loadOrders(){
 
             const response = await fetch("http://localhost:8080/api/orders", {
+                credentials: "include",
                 headers: {
-                    Authorization: \`Bearer \${accessToken}\`,
                     "X-API-Key": "abc123"
                 }
             });
@@ -54,8 +58,8 @@ app.get("/", (req, res) => {
         async function loadUsers(){
 
             const response = await fetch("http://localhost:8080/api/users", {
+                credentials: "include",
                 headers: {
-                    Authorization: \`Bearer \${accessToken}\`,
                     "X-API-Key": "abc123"
                 }
             });
@@ -71,7 +75,9 @@ app.get("/", (req, res) => {
     `);
 });
 
-proxy.post("/register", (req, res) => {
+proxy.use("/auth", userRouter);
+
+proxy.post("/admin/register-route", (req, res) => {
     const { path, upstream, scope } = req.body;
     registry.push({
         path,

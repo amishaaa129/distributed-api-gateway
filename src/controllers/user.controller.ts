@@ -1,6 +1,7 @@
 import { pool } from "../db/db.js";
 import bcrypt from "bcrypt";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import type { JwtPayload } from "jsonwebtoken";
 import ms from "ms";
 
 const generateAccessAndRefreshToken = async (userId: number) => {
@@ -85,7 +86,14 @@ const registerUser = async (req, res) => {
             RETURNING id,email,created_at`,
             [email, hashedPassword]
         );
+        const user = result.rows[0];
 
+        await pool.query(
+            `INSERT INTO user_roles(user_id, role)
+            VALUES($1, $2)`,
+            [user.id, "viewer"]   // or "admin" while developing
+        );
+        
         return res.status(201).json({
             message: "User registered successfully",
             user: result.rows[0]

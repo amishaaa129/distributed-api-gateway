@@ -43,7 +43,6 @@ const rateLimiter = async(req,res,next) => {
         const result = await transaction.exec();
     
         const requestCount = Number(result?.[2]); //result of transaction.zCard
-    
         if (requestCount > LIMIT) {
             return res.status(429).json({
                 message: "Rate limit exceeded"
