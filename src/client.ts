@@ -6,6 +6,9 @@ import { registry } from "./config/registry.js";
 import userRouter from "./routes/user.routes.js";
 import rateLimiter from "./middleware/rate-limiter.middleware.js";
 import cors from "cors";
+import circuitBreaker from "./middleware/circuit-breaker.ts";
+import { logRequest } from "./services/request-logger.ts";
+import logRouter from "./routes/log.routes.ts";
 
 const app = express();
 const app1 = express();
@@ -76,6 +79,7 @@ app.get("/", (req, res) => {
 });
 
 proxy.use("/auth", userRouter);
+proxy.use("/admin", logRouter);
 
 proxy.post("/admin/register-route", (req, res) => {
     const { path, upstream, scope } = req.body;
@@ -114,37 +118,122 @@ proxy.use("/api",verifyJWT);
 proxy.use("/api",authoriseRoles);
 proxy.use("/api", rateLimiter);
 
-proxy.use( "/api",createProxyMiddleware({
-    changeOrigin: true,
+proxy.use("/api", async (req, res) => {
+    const start = Date.now();
 
-    router: (req) => {
-      const route=registry.find((r) => req.originalUrl.startsWith(r.path));
-      if (!route) {
-        throw new Error("No route registered");
-      }
+    try {
 
-      return route?.upstream;
-    },
+        // Find route
+        const route = registry.find(
+            r => req.originalUrl.startsWith(r.path)
+        );
 
-    pathRewrite: {
-      "^/api": "",
-    },
 
-    on: {
-      proxyReq: (proxyReq, req) => {
-        console.log("Forwarding:", req.originalUrl);
-      },
+        if (!route) {
+            return res.status(404).json({
+                message: "Route not registered"
+            });
+        }
 
-      proxyRes: (proxyRes) => {
-        console.log("Status:", proxyRes.statusCode);
-      },
 
-      error: (err) => {
-        console.log("Proxy Error:", err);
-      },
-    },
-  })
-);
+        console.log(
+            "Forwarding:",
+            req.originalUrl,
+            "→",
+            route.upstream
+        );
+
+
+        const response = await circuitBreaker.fire(
+            route.upstream,
+
+            async () => {
+
+                const url =
+                    route.upstream +
+                    req.originalUrl.replace("/api", "");
+
+
+                console.log("Calling upstream:", url);
+
+
+                const upstreamResponse = await fetch(url, {
+                    method: req.method,
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body:
+                        req.method !== "GET"
+                        ? JSON.stringify(req.body)
+                        : undefined
+                });
+
+
+                // Convert HTTP 5xx into a rejected promise
+                // so Opossum detects it as a failure
+                if (upstreamResponse.status >= 500) {
+
+                    throw new Error(
+                        `Upstream failure: ${upstreamResponse.status}`
+                    );
+
+                }
+
+
+                return upstreamResponse;
+            }
+        );
+
+
+        const data = await response.json();
+
+        await logRequest({
+
+            method:req.method,
+
+            path:req.originalUrl,
+
+            upstream:route.upstream,
+
+            statusCode:response.status,
+
+            latency:
+                Date.now()-start,
+
+            reqSize:
+                JSON.stringify(req.body || {}).length,
+
+            resSize:
+                JSON.stringify(data).length
+
+        });
+
+
+        return res
+            .status(response.status)
+            .json(data);
+
+
+    } catch(error:any){
+
+
+        console.log(
+            "Circuit Breaker Error:",
+            error.message
+        );
+
+
+        return res.status(503).json({
+            message:
+                "Service unavailable",
+            error:
+                error.message
+        });
+    }
+
+});
 
 app.listen(3000, () => {
     console.log('client port 3000 is running');
