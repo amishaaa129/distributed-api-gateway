@@ -16,6 +16,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.1",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   },
@@ -32,6 +33,7 @@
     "morgan": "^1.11.0",
     "opossum": "^10.0.0",
     "pg": "^8.22.0",
-    "redis": "^6.1.0"
+    "redis": "^6.1.0",
+    "ws": "^8.21.3"
   }
 }
