@@ -102,13 +102,15 @@ proxy.post("/admin/register-route", (req, res) => {
     });
 });
 
-app1.get("/orders", (req, res) => {
-
-    return res.status(500).json({
-        message: "Simulated Orders Service Failure"
+app1.get('/orders', (req,res) => {
+    res.json({
+        service: "orders",
+        data: [
+            { id: 1, item: "bag", price: 2000 },
+            { id: 2, item: "watch", price: 1000 }
+        ]
     });
-
-});
+}
 
 app2.get('/users', (req,res) => {
     res.json({
