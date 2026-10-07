@@ -1,0 +1,28 @@
+config:
+  target: "http://localhost:8080"
+
+  phases:
+    - duration: 300
+      arrivalRate: 50
+      maxVusers: 500
+
+  defaults:
+    headers:
+      X-API-Key: "abc123"
+      Cookie: "accessToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiIzIiwiZW1haWwiOiJqb2huQGdtYWlsLmNvbSIsInJvbGVzIjpbImFkbWluIl0sImlhdCI6MTc5MTM5MTU2MiwiZXhwIjoxNzkxMzkyNDYyfQ.eulA31ug0SGEagkXB1IBJck5nQiMznBPVjVZ1wbvlV4"
+
+
+scenarios:
+
+  - name: Orders endpoint
+    weight: 50
+    flow:
+      - get:
+          url: "/api/orders"
+
+
+  - name: Users endpoint
+    weight: 50
+    flow:
+      - get:
+          url: "/api/users"

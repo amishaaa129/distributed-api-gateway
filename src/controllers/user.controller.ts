@@ -1,8 +1,13 @@
 import { pool } from "../db/db.js";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import type { JwtPayload } from "jsonwebtoken";
 import ms from "ms";
+import type {
+    Request,
+    Response,
+    CookieOptions
+} from "express";
 
 const generateAccessAndRefreshToken = async (userId: number) => {
     const userResult = await pool.query(
@@ -23,29 +28,34 @@ const generateAccessAndRefreshToken = async (userId: number) => {
     const roles = roleResult.rows.map(r => r.role);
 
     const accessToken = jwt.sign(
-        {
-            _id: user.id,
-            email: user.email,
-            roles
-        },
-        process.env.ACCESS_TOKEN_SECRET!,
-        {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY!
-        }
-    );
+    {
+        _id: user.id,
+        email: user.email,
+        roles
+    },
+    process.env.ACCESS_TOKEN_SECRET!,
+    {
+        expiresIn:
+            process.env.ACCESS_TOKEN_EXPIRY! as SignOptions["expiresIn"] & {},
+    }
+);
 
-    const refreshToken = jwt.sign(
-        {
-            _id: user.id
-        },
-        process.env.REFRESH_TOKEN_SECRET!,
-        {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRY!
-        }
-    );
+const refreshToken = jwt.sign(
+    {
+        _id: user.id
+    },
+    process.env.REFRESH_TOKEN_SECRET!,
+    {
+        expiresIn:
+            process.env.REFRESH_TOKEN_EXPIRY! as SignOptions["expiresIn"] & {},
+    }
+);
+
+    const refreshTokenExpiry =
+    process.env.REFRESH_TOKEN_EXPIRY! as Parameters<typeof ms>[0];
 
     const expiresAt = new Date(
-        Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRY!)
+        Date.now() + ms(refreshTokenExpiry)
     );
 
     await pool.query(
@@ -57,7 +67,10 @@ const generateAccessAndRefreshToken = async (userId: number) => {
     return { accessToken, refreshToken };
 };
 
-const registerUser = async (req, res) => {
+const registerUser = async (
+    req: Request,
+    res: Response
+) => {
     try {
         const { email, password } = req.body;
 
@@ -78,7 +91,10 @@ const registerUser = async (req, res) => {
             });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(
+            password,
+            10
+        );
 
         const result = await pool.query(
             `INSERT INTO users(email,password)
@@ -86,18 +102,20 @@ const registerUser = async (req, res) => {
             RETURNING id,email,created_at`,
             [email, hashedPassword]
         );
+
         const user = result.rows[0];
 
         await pool.query(
             `INSERT INTO user_roles(user_id, role)
             VALUES($1, $2)`,
-            [user.id, "viewer"]   // or "admin" while developing
+            [user.id, "viewer"]
         );
-        
+
         return res.status(201).json({
             message: "User registered successfully",
-            user: result.rows[0]
+            user
         });
+
     } catch (err: any) {
         return res.status(500).json({
             message: err.message
@@ -105,9 +123,13 @@ const registerUser = async (req, res) => {
     }
 };
 
-const loginUser = async (req, res) => {
+const loginUser = async (
+    req: Request,
+    res: Response
+) => {
     try {
         const { email, password } = req.body;
+
         if (!email || !password) {
             return res.status(400).json({
                 message: "Email and password are required"
@@ -126,22 +148,28 @@ const loginUser = async (req, res) => {
         }
 
         const user = result.rows[0];
+
         const valid = await bcrypt.compare(
             password,
             user.password
         );
+
         if (!valid) {
             return res.status(401).json({
                 message: "Invalid credentials"
             });
         }
 
-        const { accessToken, refreshToken } =
-            await generateAccessAndRefreshToken(user.id);
+        const {
+            accessToken,
+            refreshToken
+        } = await generateAccessAndRefreshToken(
+            user.id
+        );
 
         const { password: _, ...safeUser } = user;
 
-        const options = {
+        const options: CookieOptions = {
             httpOnly: true,
             secure: false,
             sameSite: "lax"
@@ -149,12 +177,21 @@ const loginUser = async (req, res) => {
 
         return res
             .status(200)
-            .cookie("accessToken", accessToken, options)
-            .cookie("refreshToken", refreshToken, options)
+            .cookie(
+                "accessToken",
+                accessToken,
+                options
+            )
+            .cookie(
+                "refreshToken",
+                refreshToken,
+                options
+            )
             .json({
                 message: "Logged in successfully",
                 user: safeUser
             });
+
     } catch (err: any) {
         return res.status(500).json({
             message: err.message
@@ -162,25 +199,43 @@ const loginUser = async (req, res) => {
     }
 };
 
-const logoutUser = async (req, res) => {
+const logoutUser = async (
+    req: Request,
+    res: Response
+) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({
+                message: "Unauthorized"
+            });
+        }
+
         await pool.query(
             `DELETE FROM refresh_tokens
             WHERE user_id=$1`,
             [req.user._id]
         );
-        const options = {
+
+        const options: CookieOptions = {
             httpOnly: true,
             secure: false,
             sameSite: "lax"
         };
+
         return res
-            .clearCookie("accessToken", options)
-            .clearCookie("refreshToken", options)
+            .clearCookie(
+                "accessToken",
+                options
+            )
+            .clearCookie(
+                "refreshToken",
+                options
+            )
             .status(200)
             .json({
                 message: "Logged out successfully"
             });
+
     } catch (err: any) {
         return res.status(500).json({
             message: err.message
@@ -188,10 +243,14 @@ const logoutUser = async (req, res) => {
     }
 };
 
-const refreshAccessToken = async (req, res) => {
+const refreshAccessToken = async (
+    req: Request,
+    res: Response
+) => {
     try {
         const incomingRefreshToken =
-            req.cookies?.refreshToken || req.body?.refreshToken;
+            req.cookies?.refreshToken ||
+            req.body?.refreshToken;
 
         if (!incomingRefreshToken) {
             return res.status(401).json({
@@ -204,37 +263,59 @@ const refreshAccessToken = async (req, res) => {
             process.env.REFRESH_TOKEN_SECRET!
         ) as JwtPayload;
 
+        if (!decoded._id) {
+            return res.status(401).json({
+                message: "Invalid refresh token"
+            });
+        }
+
         const tokenResult = await pool.query(
             `SELECT * FROM refresh_tokens
             WHERE user_id=$1
-            AND token=$2 AND expires_at > NOW()`,
-            [decoded._id, incomingRefreshToken]
+            AND token=$2
+            AND expires_at > NOW()`,
+            [
+                decoded._id,
+                incomingRefreshToken
+            ]
         );
 
         if (tokenResult.rows.length === 0) {
             return res.status(401).json({
                 message: "Invalid refresh token"
             });
-
         }
 
-        await pool.query(`
-            DELETE FROM refresh_tokens WHERE token=$1`,
+        await pool.query(
+            `DELETE FROM refresh_tokens
+            WHERE token=$1`,
             [incomingRefreshToken]
         );
 
-        const { accessToken, refreshToken } =
-            await generateAccessAndRefreshToken(decoded._id);
+        const {
+            accessToken,
+            refreshToken
+        } = await generateAccessAndRefreshToken(
+            Number(decoded._id)
+        );
 
-        const options = {
+        const options: CookieOptions = {
             httpOnly: true,
             secure: false,
             sameSite: "lax"
         };
 
         return res
-            .cookie("accessToken", accessToken, options)
-            .cookie("refreshToken", refreshToken, options)
+            .cookie(
+                "accessToken",
+                accessToken,
+                options
+            )
+            .cookie(
+                "refreshToken",
+                refreshToken,
+                options
+            )
             .status(200)
             .json({
                 message: "Access token refreshed"
@@ -247,4 +328,4 @@ const refreshAccessToken = async (req, res) => {
     }
 };
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+export {registerUser,loginUser,logoutUser,refreshAccessToken};

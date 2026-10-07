@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
-import MetricsStore from "./metrics-store.ts";
+import MetricsStore from "./metrics-store.js";
 
 export function setupMetricsWebSocket(server: Server) {
     const wss = new WebSocketServer({

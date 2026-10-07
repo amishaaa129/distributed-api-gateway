@@ -1,10 +1,15 @@
 import { pool } from "../db/db.js";
 import redis from "../db/redis.js";
+import type {
+    Request,
+    Response,
+    NextFunction
+} from "express";
 
 const WINDOW = Number(process.env.RATE_LIMIT_WINDOW);
 const LIMIT = Number(process.env.RATE_LIMIT_MAX);
 
-const rateLimiter = async(req,res,next) => {
+const rateLimiter = async(req: Request,res: Response,next: NextFunction) => {
     try {
         const apiKey = req.header("X-API-Key");
     

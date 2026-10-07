@@ -1,4 +1,4 @@
-import metricsStore from "./metrics-store.ts";
+import metricsStore from "./metrics-store.js";
 
 interface AlertConfig {
     name: string;

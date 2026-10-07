@@ -1,3 +1,9 @@
+// 
+
+// above was for docker
+
+// use below one when not using docker
+
 export const registry = [
     {
         path: "/api/orders",
@@ -18,5 +24,5 @@ export const registry = [
         path: "/api/users/create",
         upstream: "http://localhost:3002",
         scope: "users:write"
-    },
+    }
 ];

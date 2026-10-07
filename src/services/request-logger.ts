@@ -1,4 +1,4 @@
-import { pool } from "../db/db.ts";
+import { pool } from "../db/db.js";
 
 interface RequestLog {
     method:string;

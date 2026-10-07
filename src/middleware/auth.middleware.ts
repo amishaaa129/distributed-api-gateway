@@ -1,13 +1,25 @@
 import { pool } from "../db/db.js";
 import jwt from "jsonwebtoken";
 import type { JwtPayload } from "jsonwebtoken";
-import { scopeMap, routeConfig } from "../config/scopes.js";
+import type {
+    Request,
+    Response,
+    NextFunction
+} from "express";
+import { scopeMap } from "../config/scopes.js";
 import { registry } from "../config/registry.js";
 
-const verifyJWT = async (req, res, next) => {
+const verifyJWT = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+) => {
     try {
         const token =
-            req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+            req.cookies?.accessToken ||
+            req
+                .header("Authorization")
+                ?.replace("Bearer ", "");
 
         if (!token) {
             return res.status(401).json({
@@ -15,11 +27,13 @@ const verifyJWT = async (req, res, next) => {
             });
         }
 
-        const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET!
+        const decodedToken = jwt.verify(
+            token,
+            process.env.ACCESS_TOKEN_SECRET!
         ) as JwtPayload;
 
         const result = await pool.query(
-            "SELECT id,email FROM users WHERE id=$1",
+            "SELECT id, email FROM users WHERE id=$1",
             [decodedToken._id]
         );
 
@@ -28,7 +42,12 @@ const verifyJWT = async (req, res, next) => {
                 message: "Invalid access token"
             });
         }
-        req.user = result.rows[0];
+
+        req.user = {
+            _id: result.rows[0].id,
+            email: result.rows[0].email
+        };
+
         next();
 
     } catch (error: any) {
@@ -38,19 +57,35 @@ const verifyJWT = async (req, res, next) => {
     }
 };
 
-const authoriseRoles = async (req, res, next) => {
+const authoriseRoles = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({
+                message: "Unauthorized request"
+            });
+        }
+
+        const user = req.user;
+
         const roleResult = await pool.query(
-            `SELECT role FROM user_roles WHERE user_id=$1`,
-            [req.user.id]
+            `SELECT role
+             FROM user_roles
+             WHERE user_id=$1`,
+            [user._id]
         );
 
         const allowedScopes = roleResult.rows.flatMap(
-            r => scopeMap[r.role] || []
+            (r: { role: string }) =>
+                scopeMap[r.role] || []
         );
 
-        const route = registry.find(r =>
-            req.originalUrl.startsWith(r.path)
+        const route = registry.find(
+            r =>
+                req.originalUrl.startsWith(r.path)
         );
 
         if (!route) {
@@ -76,4 +111,7 @@ const authoriseRoles = async (req, res, next) => {
     }
 };
 
-export { verifyJWT, authoriseRoles };
+export {
+    verifyJWT,
+    authoriseRoles
+};

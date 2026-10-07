@@ -30,4 +30,21 @@ node_modules/
 !.env.example
 
 dist/
-build/
+api-gateway-backup.sql
+
+# Database backups
+api-gateway-backup.sql
+
+# Generated frontend files
+frontend/frontend/src/*.js
+frontend/frontend/src/*.js.map
+frontend/frontend/src/*.d.ts
+frontend/frontend/src/*.d.ts.map
+frontend/frontend/vite.config.js
+frontend/frontend/vite.config.js.map
+frontend/frontend/vite.config.d.ts
+frontend/frontend/vite.config.d.ts.map
+
+# Load-test scratch output
+baseline.txt
+src/baseline.txt

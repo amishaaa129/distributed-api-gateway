@@ -61,7 +61,7 @@ class MetricsStore {
 
         const index = Math.ceil((percentile / 100) * sorted.length) - 1;
 
-        return sorted[Math.max(0, index)];
+        return sorted[Math.max(0, index)]!;
     }
 
     private computeMetrics() {

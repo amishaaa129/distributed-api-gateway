@@ -1,0 +1,101 @@
+services:
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    command: node dist/client.js
+
+    ports:
+      - "${GATEWAY_PORT}:8080"
+
+    environment:
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET}
+      ACCESS_TOKEN_EXPIRY: ${ACCESS_TOKEN_EXPIRY}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET}
+      REFRESH_TOKEN_EXPIRY: ${REFRESH_TOKEN_EXPIRY}
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+
+      REDIS_URL: redis://redis:6379
+
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX}
+
+      ORDERS_ALERT_WEBHOOK_URL: ${ORDERS_ALERT_WEBHOOK_URL}
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      upstream-a:
+        condition: service_started
+      upstream-b:
+        condition: service_started
+
+
+  redis:
+    image: redis:7-alpine
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+
+  postgres:
+    image: postgres:16-alpine
+
+    ports:
+      - "${DB_PORT}:5432"
+
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER} -d ${DB_NAME}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  upstream-a:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    command: node dist/upstream-a.js
+
+    expose:
+      - "3001"
+
+
+  upstream-b:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    command: node dist/upstream-b.js
+
+    expose:
+      - "3002"
+  
+volumes:
+  postgres_data:

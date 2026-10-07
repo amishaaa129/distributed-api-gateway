@@ -13,26 +13,33 @@ class UpstreamCircuitBreaker {
 
     private breakers = new Map<string, BreakerEntry>();
 
-    private createBreaker(upstream: string): BreakerEntry {
+    private createBreaker(
+        upstream: string
+    ): BreakerEntry {
 
         const entry: BreakerEntry = {
             failures: [],
+
             breaker: new CircuitBreaker(
                 async (
                     request: () => Promise<Response>
-                ) => {
+                ): Promise<Response> => {
                     return await request();
                 },
+
                 {
                     timeout: 5000,
 
-                    // Opossum's automatic OPEN → HALF-OPEN timer.
+                    // Opossum's automatic
+                    // OPEN → HALF-OPEN timer.
                     resetTimeout: RESET_TIMEOUT,
 
-                    // We manually decide when the circuit should open.
+                    // We manually decide when
+                    // the circuit should open.
                     errorThresholdPercentage: 100,
 
-                    // Don't automatically open based on a small sample.
+                    // Don't automatically open
+                    // based on a small sample.
                     volumeThreshold: 1000
                 }
             )
@@ -69,7 +76,9 @@ class UpstreamCircuitBreaker {
         return entry;
     }
 
-    private getBreaker(upstream: string): BreakerEntry {
+    private getBreaker(
+        upstream: string
+    ): BreakerEntry {
 
         let entry = this.breakers.get(upstream);
 
@@ -80,7 +89,9 @@ class UpstreamCircuitBreaker {
         return entry;
     }
 
-    private cleanOldFailures(entry: BreakerEntry) {
+    private cleanOldFailures(
+        entry: BreakerEntry
+    ): void {
 
         const now = Date.now();
 
@@ -93,7 +104,7 @@ class UpstreamCircuitBreaker {
     private recordFailure(
         upstream: string,
         entry: BreakerEntry
-    ) {
+    ): void {
 
         const now = Date.now();
 
@@ -134,11 +145,11 @@ class UpstreamCircuitBreaker {
              * Opossum controls:
              *
              * CLOSED → request allowed
-             * OPEN   → request rejected
+             * OPEN → request rejected
              * HALF-OPEN → one test request
              */
-            const response =
-                await entry.breaker.fire(request);
+            const response: Response =
+                await entry.breaker.fire(request) as Response;
 
             /*
              * Successful request.
@@ -147,9 +158,7 @@ class UpstreamCircuitBreaker {
              * Opossum will close the circuit.
              */
             if (response.ok) {
-
                 entry.failures = [];
-
             }
 
             return response;
